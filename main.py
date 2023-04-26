@@ -2,7 +2,7 @@ import os
 import sys
 import threading
 import mysql_monitor
-import tcp_proxy 
+from tcp_proxy import tcp_proxy
 import logging
 import traceback
 import time
