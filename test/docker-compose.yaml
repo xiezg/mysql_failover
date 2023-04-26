@@ -1,0 +1,43 @@
+version: "3.4"
+services:
+  mysql-1:
+    image: mysql:5.7.41
+    volumes:
+      - "/Users/aibee/src/big_repo/mysql/dir1:/var/lib/mysql"
+    container_name: mysql-node1
+    environment:
+      MYSQL_ROOT_PASSWORD: "000000"
+    #network_mode: "host"
+    command: --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    ports:
+      - target: 3306
+        published: 13306
+    networks:
+      - my_network
+  mysql-2:
+    image: mysql:5.7.41
+    volumes:
+      - "/Users/aibee/src/big_repo/mysql/dir2:/var/lib/mysql"
+    container_name: mysql-node2
+    command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    environment:
+      MYSQL_ROOT_PASSWORD: "000000"
+    networks:
+      - my_network
+    ports:
+      - target: 3306
+        published: 23306
+  backup:
+    image: harbor.aibee.cn/platform/xtrabackup:1.0.6
+    volumes:
+      - "/Users/aibee/src/big_repo/mysql/dir1:/data1/"
+      - "/Users/aibee/src/big_repo/mysql/dir2:/data2/"
+      - "/Users/aibee/src/big_repo/mysql/backup:/backup/"
+    container_name: backup 
+    command: sleep 1000d
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    driver: bridge
