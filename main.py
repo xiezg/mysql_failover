@@ -12,8 +12,15 @@ DEBUG = os.environ.get( 'DEBUG', 'false' ).lower() == 'true'
 logging.basicConfig(level = logging.DEBUG if DEBUG else logging.INFO ,format = '%(asctime)s %(threadName)-10s line:%(lineno)-4d %(levelname)7s %(funcName)16s():%(message)s')
 logger = logging.getLogger(__name__)
 
-def getchar():
-    sys.stdin.read(1)
+def handle_exception(args):
+    # 打印异常类型、值和堆栈跟踪信息
+    logger.critical( f'Unhandled exception: {args.exc_value}')
+    traceback.print_tb(args.exc_traceback)
+    logging.shutdown()
+    os._exit(1)
+
+# 设置全局未处理异常处理程序
+threading.excepthook =  handle_exception
 
 proxy = tcp_proxy.TCPProxy()
 

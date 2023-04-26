@@ -388,11 +388,6 @@ class MySQLMasterSlaveCluster(MySQLHATopologyAbstract):
             except MySQLConnShutdown as e:
                 logger.debug( "检测到过程中连接断开" )
                 continue
-            except Exception as e:
-                traceback.print_exc()
-                logger.critical( "MySQLMasterSlaveCluster Exception:{}".format(e) )
-                logging.shutdown()
-                os._exit(1)
 
     def start( self, call_back):
         if not self.__work_t1 is None:
