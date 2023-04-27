@@ -216,17 +216,15 @@ class MySQLDb:
         ##return len( self.exec_query("select * from sys.session where user='sql/slave_sql'")) > 0
         rst = self.exec_query( "select SERVICE_STATE, LAST_ERROR_NUMBER, LAST_SEEN_TRANSACTION, LAST_ERROR_MESSAGE, LAST_ERROR_TIMESTAMP from performance_schema.replication_applier_status_by_worker" )
 
-        all_on = True
-
         for item in rst:
-            all_on = all_on and ( item[0] == "ON" )
             if item[0] == "ON":
                 continue 
             if item[1] != 0:
-                logger.error(item )
                 raise MySQLSlaveSQLThreadException( item[1], item[2], item[3] ) 
+            else:
+                return False    #错误号为0，应该是执行了 stop slave;
 
-        return all_on 
+        return True 
 
     def restart_slave(self):
         if not self.is_slave():
@@ -319,19 +317,20 @@ class MySQLMasterSlaveCluster(MySQLHATopologyAbstract):
         try:
             if not self.slave.is_slave_io_thread_running():
                 logger.warning( "slave io_thread not running" )
-                #self.slave.restart_slave()
 
             if not self.slave.is_slave_sql_thread_running():
-                logger.warning( "slave sql_thread not running" )
-                #self.slave.restart_slave()
+                logger.warning( "slave sql_thread not running" ) #slave应该被正常stop slave; 这种情况不进行干预
         except MySQLSlaveIOThreadException as e:
             logger.error( e )
             if e.errno == 2003:
                 logger.error( e.msg )
-                return False
+                return
             elif e.errno == 1236:
                 self.slave.gtid_force_sync(self.master )
                 self.slave.restart_slave()
+            elif e.errno == 2013:
+                logger.warning( "slave can't connect to master {}".format(e.msg) )
+                return
             else:
                 raise e
         except MySQLSlaveSQLThreadException as e:
