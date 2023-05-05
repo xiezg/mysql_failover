@@ -16,12 +16,7 @@ import traceback
 
 ER_SLAVE_RLI_INIT_REPOSITORY = "Slave failed to initialize relay log info structure from the repository"
 
-logger = logging.getLogger(__name__)
-
-#DEBUG = os.environ.get( 'DEBUG', 'false' ).lower() == 'true'
-#
-#logging.basicConfig(level = logging.DEBUG if DEBUG else logging.INFO ,format = '%(asctime)s %(threadName)-10s line:%(lineno)-4d %(levelname)7s %(funcName)16s():%(message)s')
-#logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 df_path="/"
 
