@@ -82,6 +82,9 @@ class MySQLGTIDInconsistencyException( mysql.connector.errors.Error):
 class MySQLConnShutdown( mysql.connector.errors.Error ):
     pass
 
+class MySQLDbAbstract(ABC):
+    pass
+
 class MySQLDb:
     REPL_USER_NAME="repl_scott"
     REPL_USER_PASSWORD="000000"
@@ -214,17 +217,20 @@ class MySQLDb:
 
     def is_slave_sql_thread_running(self):
         ##return len( self.exec_query("select * from sys.session where user='sql/slave_sql'")) > 0
+        rst=True
+
         rst = self.exec_query( "select SERVICE_STATE, LAST_ERROR_NUMBER, LAST_SEEN_TRANSACTION, LAST_ERROR_MESSAGE, LAST_ERROR_TIMESTAMP from performance_schema.replication_applier_status_by_worker" )
+        rst = rst +  self.exec_query( "select SERVICE_STATE, LAST_ERROR_NUMBER, \"\" as LAST_SEEN_TRANSACTION, LAST_ERROR_MESSAGE, LAST_ERROR_TIMESTAMP from performance_schema.replication_applier_status_by_coordinator" )
+
 
         for item in rst:
             if item[0] == "ON":
                 continue 
             if item[1] != 0:
                 raise MySQLSlaveSQLThreadException( item[1], item[2], item[3] ) 
-            else:
-                return False    #错误号为0，应该是执行了 stop slave;
+            rst = False    #错误号为0，应该是执行了 stop slave;
 
-        return True 
+        return rst 
 
     def restart_slave(self):
         if not self.is_slave():
@@ -277,6 +283,9 @@ class MySQLDb:
         self.gtid_append( self.gtid_miss(target) )
 
     def skip_transactions_with_gtid( self, gtid ):
+        if len( str(gtid) ) <= 0:
+            raise Exception( "gtid:[{}] is empty".format( gtid ) )
+
         self.exec_query( "stop slave; SET GTID_NEXT='{}'; BEGIN; COMMIT; SET GTID_NEXT='AUTOMATIC';start slave;".format( gtid ), multi=True )
 
 class MySQLHATopologyAbstract(ABC):
@@ -335,20 +344,41 @@ class MySQLMasterSlaveCluster(MySQLHATopologyAbstract):
                 raise e
         except MySQLSlaveSQLThreadException as e:
             logger.error(e)
+            if e.errno == 1008:
+                #Can't drop database 't11'; database doesn't exist' on query. Default database: 't11'. Query: 'drop database t11'
+                self.slave.skip_transactions_with_gtid( e.gtid )
+                return
+
+            if e.errno == 1051:
+                #Unknown table 't12.t'' on query. Default database: 't12'. Query: 'DROP TABLE `t`
+                self.slave.skip_transactions_with_gtid( e.gtid )
+                return
+
             if e.errno == 1007:
                 #'Can't create database 't'; database exists' on query
                 self.slave.skip_transactions_with_gtid( e.gtid )
-            elif e.errno == 1032: 
+                return
+
+            if e.errno == 1032: 
                 #Could not execute Delete_rows event on table t.t; 
                 #Can't find record in 't', Error_code: 1032
                 self.slave.skip_transactions_with_gtid( e.gtid )
-            elif e.errno == 1677:
+                return
+
+            if e.errno == 1146: 
+                #Error executing row event: 'Table 't13.t' doesn't exist'
+                #操作某个表时，该表不存在
+                #pass
+                return
+
+            if e.errno == 1677:
                 #Column 1 of table 'x.t' cannot be converted 
                 #from type 'varchar(100(bytes))' to type 'varchar(200(bytes) latin1
                 #主从表数据类型不一致
-                pass    #目前不支持自动修复
-            else:
-                raise e
+                #pass    #目前不支持自动修复
+                return
+
+            raise e
 
     ##循环任务
     ##等待失效的master重启后，将其角色转变为新的slave
