@@ -3,16 +3,11 @@
 # Author: xiezg
 # mail: xzghyd2008@hotmail.com
 # Created Time: 2023-03-29 19:21:25
-# Last modified: 2023-05-05 15:49:33
+# Last modified: 2023-05-05 15:54:15
 #########################################################################
 #!/bin/bash
 
 pushd `dirname $0`
-
-cat >.env <<EOF
-BASE_PATH=`pwd`
-IMAGE_HOST=harbor.aibee.cn
-EOF
 
 mkdir -p ./dir1
 mkdir -p ./dir2
