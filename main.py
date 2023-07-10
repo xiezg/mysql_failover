@@ -1,21 +1,23 @@
 import os
 import sys
 import threading
-import mysql_monitor
+from mysql_ha import scan_cluster_topology
 from tcp_proxy import tcp_proxy
 import logging
 import traceback
 import time
-import logging.handlers
+from logging.handlers import RotatingFileHandler
+from cfg import cfg
 
+mycfg = cfg.MyCfg( "my.ini" )
 
-nodeList = os.environ.get( "NODE", "root:000000@mysql-node1:3306,root:000000@mysql-node2:3306" ).split( "," )
-log_level = 'DEBUG' if os.environ.get( 'DEBUG', 'false' ).lower() == 'true' else 'INFO'
+log_level = mycfg.getLogLevel()
 
 formatter = logging.Formatter( '%(asctime)s %(threadName)-10s line:%(lineno)-4d %(levelname)7s %(funcName)16s():%(message)s' )
+#formatter = logging.Formatter( '%(funcName)16s():%(message)s' )
 
 # 创建一个 RotatingFileHandler 实例
-rotate_handler = logging.handlers.RotatingFileHandler(filename='/var/log/mysql_failover.log', mode='a', maxBytes=100*1024*1024, backupCount=5)
+rotate_handler = RotatingFileHandler(filename= mycfg.getLogSavePath(), mode='a', maxBytes=100*1024*1024, backupCount=5)
 rotate_handler.setLevel(log_level)
 rotate_handler.setFormatter(formatter)
 
@@ -41,15 +43,21 @@ def handle_exception(args):
 # 设置全局未处理异常处理程序
 threading.excepthook =  handle_exception
 
+#没有在代理中直接指定一个主节点，
+#是因为主节点必须是通过选主策略获取的
+#减少TCPProxy模块和选主模块的耦合
 proxy = tcp_proxy.TCPProxy()
 
 def mysql_failover_callback( master_host ):
     proxy.stop()
-    proxy.start( 3306, master_host, 16  )
+    proxy.start( mycfg.getProxyListenPort(), master_host, mycfg.getProxyWorkThreadNum() )
 
-cluster = mysql_monitor.scan_cluster_topology( nodeList[0], nodeList[1] )
+nodeList = mycfg.getNodeDSN()
+cluster = scan_cluster_topology( nodeList[0], nodeList[1], mycfg.getFixMasterNode() )
 if not cluster:
     exit(1)
-cluster.start( mysql_failover_callback )
+
+cluster.start( mycfg.isEnableFailover(), mysql_failover_callback )
+
 
 

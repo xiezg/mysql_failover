@@ -29,7 +29,7 @@ services:
       - target: 3306
         published: 23306
   failover:
-    image: ${IMAGE_HOST}/platform/mysql-failover:v0.0.1
+    image: mysql-failover:v0.0.1-beta.1
     container_name: failover 
     restart: always
     environment:
@@ -37,15 +37,18 @@ services:
     networks:
       - my_network
   backup:
-    image: ${IMAGE_HOST}/platform/xtrabackup:1.0.6
+    image: ${IMAGE_HOST}/platform/xtrabackup:2.4.26-beta.1
     volumes:
-      - "${BASE_PATH}/dir1:/data1/"
-      - "${BASE_PATH}/dir2:/data2/"
+      - "${BASE_PATH}/dir1:/src1/:ro"
+      - "${BASE_PATH}/dir2:/src2/:ro"
       - "${BASE_PATH}/backup:/backup/"
     container_name: backup 
-    command: sleep 1000d
+    command: /usr/local/bin/my_xtrabackup --no-defaults --no-lock --binlog-log=off --user=root --backup --backup-listen --listen-port=9000 --stream=xbstream --datadir=/src2
     networks:
       - my_network
+    ports:
+      - target: 9000
+        published: 9000
 networks:
   my_network:
     driver: bridge

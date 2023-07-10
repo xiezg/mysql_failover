@@ -1,7 +1,3 @@
-###### python 3.8.16
-###### mysql-connector-python 8.0.32
-
-from abc import ABC, abstractmethod
 import time
 import threading
 from  mysql.connector.errors import OperationalError, DatabaseError,InterfaceError
@@ -14,26 +10,7 @@ import errno
 import logging
 import traceback
 
-ER_SLAVE_RLI_INIT_REPOSITORY = "Slave failed to initialize relay log info structure from the repository"
-
 logger = logging.getLogger()
-
-df_path="/"
-
-CACHE_SIZE=1024*16
-MYSQL_CONN_PENDING   = 0      #接收到客户端的连接请求并就绪后，连接到mysql的请求连接还未就绪,这时只可以从clinet接收数据，但是不可以向数据库发送数据
-MYSQL_CONN_READY     = 1      #连接到mysqld的连接已就绪，可以在双方进行数据传输
-
-class NodeOS:
-    def disk_is_full():
-        try:
-            r = shutil.disk_usage( df_path )
-            disk_space_free_perc = (r.free / r.total ) * 100
-            logger.debug( "current path [%s] disk free usage: [%.2f]" % ( df_path, disk_space_free_perc))
-            return disk_space_free_perc > 5
-        except FileNotFoundError as e:
-            logger.debug( "disk_is_full fails.", e )
-            return False
 
 ## db://user:password@host:port/database?opt1=val1&opt2=val2
 def parse_dsn( dsn ):
@@ -53,33 +30,6 @@ def parse_dsn( dsn ):
 
     return { 'user':user, 'passwd':passwd, 'host':host, 'port':int(port)}
 
-class MySQLMultiSourceUnSupport( mysql.connector.errors.Error ):
-    def __init__(self):
-        super().__init__( msg="暂不支持多源复制模式" )
-
-class MySQLSlaveIOThreadException( mysql.connector.errors.Error):
-    def __init__(self, errno, errmsg):
-        super().__init__( msg=errmsg, errno=errno)
-
-class MySQLSlaveSQLThreadException( mysql.connector.errors.Error):
-    def __init__(self, errno, gtid, errmsg ):
-        super().__init__( errno=errno, msg=errmsg)
-        self.gtid = gtid
-
-#class MySQLSlaveSQLThreadException( mysql.connector.errors.Error):
-#    def __init__(self, errno, errmsg):
-#        super().__init__( msg=errmsg, errno=errno)
-
-class MySQLGTIDInconsistencyException( mysql.connector.errors.Error):
-    def __init__(self, errmsg):
-        super().__init__( msg=errmsg )
-
-class MySQLConnShutdown( mysql.connector.errors.Error ):
-    pass
-
-class MySQLDbAbstract(ABC):
-    pass
-
 class MySQLDb:
     REPL_USER_NAME="repl_scott"
     REPL_USER_PASSWORD="000000"
@@ -90,7 +40,7 @@ class MySQLDb:
         try:
             self.mydb = mysql.connector.connect( ** parse_dsn( dsn ), init_command="set @@sql_log_bin=off" )
         except mysql.connector.errors.InterfaceError as e:
-            if e.errno == 2003:
+            if e.errno == 2003 or e.errno == -2:
                 logger.error( "connect mysql [{}] fails.".format(dsn) )
                 raise MySQLConnShutdown()
             raise e
@@ -141,7 +91,7 @@ class MySQLDb:
         try:
             self.mydb.ping(reconnect=True, attempts=5, delay=2)
         except Exception as e:
-            logger.error( e )
+            logger.error( str(e) )
             return False  # This method does not raise
         return True
 
@@ -282,184 +232,4 @@ class MySQLDb:
             raise Exception( "gtid:[{}] is empty".format( gtid ) )
 
         self.exec_query( "stop slave; SET GTID_NEXT='{}'; BEGIN; COMMIT; SET GTID_NEXT='AUTOMATIC';start slave;".format( gtid ), multi=True )
-
-class MySQLHATopologyAbstract(ABC):
-    @abstractmethod
-    def start( self, call_back ):
-        pass
-
-    @abstractmethod
-    def stop( self ):
-        pass
-    
-class MySQlDoubleMasterTopology:
-    pass
-
-class MySQLMasterSlaveCluster(MySQLHATopologyAbstract):
-    def __init__( self, master, slave, init):
-        if init:
-            master.gtid_clean()
-            slave.gtid_clean()
-            master.switch_to_master()
-            slave.switch_to_slave( master )
-
-        self.__work_t1 = None
-
-        slave_miss_gtid = slave.gtid_miss( master)
-        master_miss_gtid = master.gtid_miss( slave )
-
-        if len( slave_miss_gtid) > 0:
-            logger.warning( "slave缺少GTID:[{}]".format( slave_miss_gtid ) )
-
-        if len( master_miss_gtid ) > 0:
-            logger.warning( "master缺少GTID:[{}]".format( master_miss_gtid ) )
-
-        self.master = master
-        self.slave = slave
-
-    def slave_maintain(self):
-        try:
-            if not self.slave.is_slave_io_thread_running():
-                logger.warning( "slave io_thread not running" )
-
-            if not self.slave.is_slave_sql_thread_running():
-                logger.warning( "slave sql_thread not running" ) #slave应该被正常stop slave; 这种情况不进行干预
-        except MySQLSlaveIOThreadException as e:
-            logger.error( e )
-            if e.errno == 2003:
-                logger.error( e.msg )
-                return
-            elif e.errno == 1236:
-                self.slave.gtid_force_sync(self.master )
-                self.slave.restart_slave()
-            elif e.errno == 2013:
-                logger.warning( "slave can't connect to master {}".format(e.msg) )
-                return
-            else:
-                raise e
-        except MySQLSlaveSQLThreadException as e:
-            logger.error(e)
-            if e.errno == 1008:
-                #Can't drop database 't11'; database doesn't exist' on query. Default database: 't11'. Query: 'drop database t11'
-                self.slave.skip_transactions_with_gtid( e.gtid )
-                return
-
-            if e.errno == 1051:
-                #Unknown table 't12.t'' on query. Default database: 't12'. Query: 'DROP TABLE `t`
-                self.slave.skip_transactions_with_gtid( e.gtid )
-                return
-
-            if e.errno == 1007:
-                #'Can't create database 't'; database exists' on query
-                self.slave.skip_transactions_with_gtid( e.gtid )
-                return
-
-            if e.errno == 1032: 
-                #Could not execute Delete_rows event on table t.t; 
-                #Can't find record in 't', Error_code: 1032
-                self.slave.skip_transactions_with_gtid( e.gtid )
-                return
-
-            if e.errno == 1146: 
-                #Error executing row event: 'Table 't13.t' doesn't exist'
-                #操作某个表时，该表不存在
-                #pass
-                return
-
-            if e.errno == 1677:
-                #Column 1 of table 'x.t' cannot be converted 
-                #from type 'varchar(100(bytes))' to type 'varchar(200(bytes) latin1
-                #主从表数据类型不一致
-                #pass    #目前不支持自动修复
-                return
-
-            raise e
-
-    ##循环任务
-    ##等待失效的master重启后，将其角色转变为新的slave
-    ##检测当前master是否有效
-    ##当master失效而且slave有效时，进行主从切换
-    @staticmethod
-    def run(self):
-        conn_info = self.master.query_connect_info() 
-        self.__call_back( ( conn_info[0], conn_info[3] ) )
-
-        while not self.__work_t1_stop:
-            time.sleep( 3 )
-            try:
-                #判断主是否有效
-                for i in range( 0,3,1):
-                    if self.master.is_connected():
-                        logger.debug( "master running" )
-                        break 
-                    logger.error( "try reconnect master" )
-                else:
-                    logger.error( "master node connect fails. slave switch_to_master" )
-                    self.slave.switch_to_master()
-                    self.master, self.slave = self.slave, self.master
-                    conn_info = self.master.query_connect_info() 
-                    self.__call_back( ( conn_info[0], conn_info[3] ) )
-                    continue
-
-                if not self.slave.is_my_master( self.master ):
-                    logger.info( "old master online and switch to slave" )
-                    self.slave.switch_to_slave( self.master )
-
-                self.slave_maintain()
-
-                logger.info( "[{}] [{}]".format( self.master, self.slave ))
-                logger.info( "slave 缺少的GTID:[{}] master缺少的GTID:[{}]".format( self.slave.gtid_miss( self.master), self.master.gtid_miss( self.slave ) ) )
-            except MySQLConnShutdown as e:
-                logger.debug( "检测到过程中连接断开" )
-                continue
-
-    def start( self, call_back):
-        if not self.__work_t1 is None:
-            raise Exception( "has running" )
-
-        self.__work_t1_stop = False
-        self.__call_back = call_back
-        self.__work_t1 = threading.Thread( target=self.run, args=(self,) ) 
-        self.__work_t1.start()
-
-    def stop(self):
-        if self.__work_t1 is None:
-            return
-        logger.debug( "recv stop" )
-        self.__work_t1_stop = True 
-        self.__work_t1.join()
-        self.__work_t1 = None
-
-#通过数据库的在线状态，扫描集群拓扑结构
-#递归扫描，检测结果是一个？
-#第一版暂时先支持两个节点, 拓扑是可以通过一个节点，扫描到集群中所有的节点
-def scan_cluster_topology( dsn1, dsn2):
-    try:
-        node1 = MySQLDb( dsn1 )
-        node2 = MySQLDb( dsn2 )
-    except MySQLConnShutdown:
-        return None
-
-    node1_is_master = node1.is_master()
-    node1_is_slave = node1.is_slave()
-
-    node2_is_master = node2.is_master()
-    node2_is_slave = node2.is_slave()
-
-    logger.debug( "%s %s %s %s", node1_is_master, node1_is_slave, node2_is_master, node2_is_slave )
-
-    if ( node1_is_master and node2_is_master and node1_is_slave and node2_is_slave ) == True:
-        if ( node1.is_my_master( node2) and nod2.is_my_master( node1 ) ) == True:
-            #互为双主结构
-            return MySQlDoubleMasterTopology(node1, node2)
-
-    if ( node1_is_master or node2_is_master or node1_is_slave or node2_is_slave ) == False:
-        logger.debug( "create master-slave cluster" )
-        return MySQLMasterSlaveCluster( node1, node2, True )
-
-    if node1.is_my_master( node2 ):
-        return MySQLMasterSlaveCluster( node2, node1, False )
-
-    if node2.is_my_master( node1 ):
-        return MySQLMasterSlaveCluster( node1, node2, False )
 
