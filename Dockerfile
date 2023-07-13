@@ -10,6 +10,7 @@ COPY ./network.py /usr/local/lib/python3.8/site-packages/mysql/connector/
 
 WORKDIR /root/failover
 COPY ./main.py ./
-COPY ./mysql_monitor.py ./
+COPY ./mysql_ha/*.py ./mysql_ha/
+COPY ./cfg/*.py ./cfg/
 COPY ./tcp_proxy/*.py ./tcp_proxy/
 CMD [ "/usr/local/bin/python3", "main.py" ]

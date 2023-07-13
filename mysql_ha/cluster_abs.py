@@ -10,6 +10,9 @@ import asyncio
 import errno
 import logging
 import traceback
+from .errors import *
+
+logger = logging.getLogger()
 
 class MySQLDbAbstract(ABC):
     pass

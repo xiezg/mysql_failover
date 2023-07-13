@@ -21,8 +21,6 @@ from mysql_ha.cluster_master_slave      import MySQLMasterSlaveCluster
 from mysql_ha.cluster_double_master     import MySQlDoubleMasterTopology
 from mysql_ha.cluster_fix_master_slave  import MySQLFixMasterSlaveCluster
 
-ER_SLAVE_RLI_INIT_REPOSITORY = "Slave failed to initialize relay log info structure from the repository"
-
 logger = logging.getLogger()
 
 #通过数据库的在线状态，扫描集群拓扑结构

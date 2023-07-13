@@ -24,13 +24,14 @@ class MySQLSlaveSQLThreadException( mysql.connector.errors.Error):
         super().__init__( errno=errno, msg=errmsg)
         self.gtid = gtid
 
-#class MySQLSlaveSQLThreadException( mysql.connector.errors.Error):
-#    def __init__(self, errno, errmsg):
-#        super().__init__( msg=errmsg, errno=errno)
-
 class MySQLGTIDInconsistencyException( mysql.connector.errors.Error):
     def __init__(self, errmsg):
         super().__init__( msg=errmsg )
 
 class MySQLConnShutdown( mysql.connector.errors.Error ):
     pass
+
+#slave角色信息丢失，不再是slave
+class MySQLSlaveRoleMissException( mysql.connector.errors.Error):
+    pass
+

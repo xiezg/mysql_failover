@@ -3,7 +3,7 @@
 # Author: xiezg
 # mail: xzghyd2008@hotmail.com
 # Created Time: 2023-03-14 19:58:23
-# Last modified: 2023-07-04 15:38:24
+# Last modified: 2023-07-13 11:05:15
 #########################################################################
 #!/bin/bash
 
@@ -12,7 +12,7 @@
 
 image_name=mysql-failover:v0.0.1-beta.1
 
-docker build  --no-cache -t $image_name -f ./Dockerfile  .
+docker build  -t $image_name -f ./Dockerfile  .
 #docker build  -t $image_name -f ./Dockerfile  .
 #docker push $image_name
 

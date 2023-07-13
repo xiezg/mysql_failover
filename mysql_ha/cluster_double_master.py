@@ -17,8 +17,6 @@ from mysql_ha.cluster_abs import MySQLSingleMasterSingleSlaveCluster
 from mysql_ha.errors import MySQLConnShutdown
 from mysql_ha.mysql_db import MySQLDb
 
-ER_SLAVE_RLI_INIT_REPOSITORY = "Slave failed to initialize relay log info structure from the repository"
-
 logger = logging.getLogger()
 
 class MySQlDoubleMasterTopology:

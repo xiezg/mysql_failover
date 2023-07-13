@@ -9,6 +9,7 @@ import asyncio
 import errno
 import logging
 import traceback
+from .errors  import *
 
 logger = logging.getLogger()
 
@@ -150,6 +151,10 @@ class MySQLDb:
         if len( rst) > 1:
             raise Exception( "暂时不支持多通道复制模式" )
 
+        #执行了 stop slave; reset slave all;slave丢失主的连接信息，已经不再是slave角色
+        if len(rst) == 0:
+            raise MySQLSlaveRoleMissException
+
         rst = rst[0]
         if rst[0] == "ON":
             return True
@@ -166,7 +171,6 @@ class MySQLDb:
 
         rst = self.exec_query( "select SERVICE_STATE, LAST_ERROR_NUMBER, LAST_SEEN_TRANSACTION, LAST_ERROR_MESSAGE, LAST_ERROR_TIMESTAMP from performance_schema.replication_applier_status_by_worker" )
         rst = rst +  self.exec_query( "select SERVICE_STATE, LAST_ERROR_NUMBER, \"\" as LAST_SEEN_TRANSACTION, LAST_ERROR_MESSAGE, LAST_ERROR_TIMESTAMP from performance_schema.replication_applier_status_by_coordinator" )
-
 
         for item in rst:
             if item[0] == "ON":
