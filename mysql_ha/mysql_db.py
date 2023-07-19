@@ -75,14 +75,18 @@ class MySQLDb:
                 logger.debug( "SQL:[{}]".format( mycursor.statement) )
                 return mycursor.fetchall()
         except mysql.connector.errors.OperationalError as e:
+            logger.error( str(e) )
             if e.msg == "MySQL Connection not available":
                 raise MySQLConnShutdown
             raise e
         except mysql.connector.errors.InterfaceError as e:
+            logger.error( str(e) )
             raise e 
         except mysql.connector.errors.DatabaseError as e:
+            logger.error( str(e) )
             raise e
         except mysql.connector.Error as e:
+            logger.error( str(e) )
             raise e 
         finally:
             if mycursor:
@@ -110,14 +114,15 @@ class MySQLDb:
         return len( self.exec_query("show slave hosts")) > 0
 
     def is_slave(self):
-        ##select * from replication_connection_configuration
-        rst = self.exec_query("select count(*) as n from mysql.slave_master_info;")[0][0]
+        #当一个数据库为Master时，mysql.slave_master_info仍有不为空的情况,使用 Host条件进行过滤
+        rst = self.exec_query("select count(*) as n from mysql.slave_master_info where Host != '';")[0][0]
+        #rst = self.exec_query("select * from performance_schema.replication_connection_configuration;")[0][0]
         if rst > 1:
             raise MySQLMultiSourceUnSupport
         return rst == 1
 
     def query_my_master_uuid(self):
-        ##select * from replication_connection_configuration
+        ##select * from performance_schema.replication_connection_configuration
         #在启动主从后，假如主从同步发生错误，则该表中Uuid字段为空.
         rst = self.exec_query( "select Uuid from mysql.slave_master_info;")
         list=[]
@@ -215,8 +220,22 @@ class MySQLDb:
     def gtid_clean(self):
         self.exec_query( "reset master" )
 
+    #不再根据show variables like 'gtid_executed' 查询，因为 gtid_executed 存储在performance_schema.global_variables表中
+    #数值列最长1024，当gtid_executed长度超过1024后，查询到的gtid_executed 不完整.
+    def gtid_executed(self):
+        rst =  self.exec_query( "select source_uuid,interval_start,interval_end from mysql.gtid_executed;" )
+
+        gtid_str=""
+
+        for item in rst:
+            if gtid_str != "":
+                gtid_str += ","
+            gtid_str += "{}:{}-{}".format( item[0], item[1], item[2] )
+
+        return gtid_str
+
     def gtid_append( self, sub_gtid ):
-        current_gtid = self.query_global_variables( "gtid_executed" )
+        current_gtid = self.gtid_executed()
         current_gtid += ","
         current_gtid += sub_gtid 
         logger.debug( current_gtid )
@@ -224,8 +243,12 @@ class MySQLDb:
         self.exec_query( "set global gtid_purged='{}'".format( current_gtid ) )
 
     def gtid_miss( self, target):
-        target_gtid = target.query_global_variables( "gtid_executed" )
-        my_gtid = self.query_global_variables( "gtid_executed" )
+        target_gtid = target.gtid_executed()
+        my_gtid = self.gtid_executed()
+
+        #logger.debug( "target_gtid:[%s]", target_gtid )
+        #logger.debug( "my_gtid:[%s]", my_gtid )
+
         return self.exec_query( "SELECT GTID_SUBTRACT('{}','{}') as n".format( target_gtid, my_gtid) )[0][0]
 
     def gtid_force_sync(self, target):
@@ -233,7 +256,9 @@ class MySQLDb:
 
     def skip_transactions_with_gtid( self, gtid ):
         if len( str(gtid) ) <= 0:
-            raise Exception( "gtid:[{}] is empty".format( gtid ) )
+            logger.error( "gtid is empty" )
+            return
 
         self.exec_query( "stop slave; SET GTID_NEXT='{}'; BEGIN; COMMIT; SET GTID_NEXT='AUTOMATIC';start slave;".format( gtid ), multi=True )
+        #self.exec_query( "SET GTID_NEXT='{}'; BEGIN; COMMIT; SET GTID_NEXT='AUTOMATIC';".format( gtid ), multi=True )
 
