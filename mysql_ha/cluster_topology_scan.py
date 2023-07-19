@@ -39,7 +39,8 @@ def scan_cluster_topology( dsn1, dsn2, master = None ):
     node2_is_master = node2.is_master()
     node2_is_slave = node2.is_slave()
 
-    logger.debug( "%s %s %s %s", node1_is_master, node1_is_slave, node2_is_master, node2_is_slave )
+    logger.debug( "node1[%s]:(isMaster:%s isSlave:%s)", dsn1, node1_is_master, node1_is_slave )
+    logger.debug( "node2[%s]:(isMaster:%s isSlave:%s)", dsn2, node2_is_master, node2_is_slave )
 
     #空节点表示（没有建立主从结构的节点，但是不代表没有数据）
     empty_node = ( node1_is_master or node2_is_master or node1_is_slave or node2_is_slave ) == False
@@ -69,3 +70,4 @@ def scan_cluster_topology( dsn1, dsn2, master = None ):
     if node2.is_my_master( node1 ):
         return MySQLMasterSlaveCluster( node1, node2, False )
 
+    raise Exception ( "can't create mysqlha topology" )
