@@ -86,6 +86,7 @@ class MySQLSingleMasterSingleSlaveCluster(MySQLHATopologyAbstract):
                 #Error executing row event: 'Table 't13.t' doesn't exist'
                 #操作某个表时，该表不存在
                 #pass
+                self.slave.skip_transactions_with_gtid( e.gtid )
                 return
 
             if e.errno == 1677:
