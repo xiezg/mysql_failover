@@ -49,6 +49,7 @@ def scan_cluster_topology( dsn1, dsn2, master = None ):
     if master:
         master_node = node1 if master == dsn1 else node2
         slave_node = node2 if master == dsn1 else node1
+        logger.info( "create fix-master-slave cluster" )
         return MySQLFixMasterSlaveCluster ( master_node, slave_node, empty_node )
 
     #已存在的双主关系
@@ -59,15 +60,17 @@ def scan_cluster_topology( dsn1, dsn2, master = None ):
 
     #节点主从角色为空(不代表数据为空)，则重新建立
     if empty_node:
-        logger.debug( "create master-slave cluster" )
+        logger.info( "create master-slave cluster" )
         return MySQLMasterSlaveCluster( node1, node2, True )
 
     #已存在的主从关系
     if node1.is_my_master( node2 ):
+        logger.info( "get master-slave cluster" )
         return MySQLMasterSlaveCluster( node2, node1, False )
 
     #已存在的主从关系
     if node2.is_my_master( node1 ):
+        logger.info( "get master-slave cluster" )
         return MySQLMasterSlaveCluster( node1, node2, False )
 
     raise Exception ( "can't create mysqlha topology" )

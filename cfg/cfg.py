@@ -53,6 +53,9 @@ class MyCfg():
     def getProxyWorkThreadNum(self):
         return self.config.getint( "proxy", "work_thread_num" )
 
+    def getProxyTcpIdleTimeout(self):
+        return self.config.getint( "proxy", "tcp_idle_timeout" )
+
     def isEnableFailover(self):
         return self.config.get( "failover", "auto_failover" ).lower() == "true"
 

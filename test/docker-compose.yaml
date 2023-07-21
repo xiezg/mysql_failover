@@ -32,6 +32,7 @@ services:
     image: mysql-failover:v0.0.1-beta.1
     container_name: failover 
     restart: always
+    command: sleep 100d
     environment:
       DEBUG: "TRUE"
     networks:

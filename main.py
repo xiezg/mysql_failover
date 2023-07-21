@@ -35,7 +35,7 @@ logger.addHandler(console_handler)
 
 def handle_exception(args):
     # 打印异常类型、值和堆栈跟踪信息
-    logger.critical( f'Unhandled exception: {args.exc_value}')
+    logger.critical( f'Unhandled exception:[ {args.exc_type} / {args.exc_value}]')
     traceback.print_tb(args.exc_traceback)
     logging.shutdown()
     os._exit(1)
@@ -46,7 +46,7 @@ threading.excepthook =  handle_exception
 #没有在代理中直接指定一个主节点，
 #是因为主节点必须是通过选主策略获取的
 #减少TCPProxy模块和选主模块的耦合
-proxy = tcp_proxy.TCPProxy()
+proxy = tcp_proxy.TCPProxy( mycfg.getProxyTcpIdleTimeout() )
 
 def mysql_failover_callback( master_host ):
     proxy.stop()
