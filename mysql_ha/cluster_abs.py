@@ -25,7 +25,10 @@ class MySQLHATopologyAbstract(ABC):
     @abstractmethod
     def stop( self ):
         pass
-
+#TODO
+#slave sql/thread在执行错误时.执行的对象是什么？(1、事物：)
+    #binlog的格式
+#slave io/thread在执行错误时.
 class MySQLSingleMasterSingleSlaveCluster(MySQLHATopologyAbstract):
 
     def slave_maintain(self):

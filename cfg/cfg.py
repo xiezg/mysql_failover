@@ -39,7 +39,9 @@ class MyCfg():
         for item in self.config.items( "failover" ):
             if re.match( "^node[0-9]{1,}$", item[0] ):
                 rst.append( item[1] )
-        return list(set(rst))  #将rst中的DSN去重
+        rst1 = list( set(rst))
+        rst1.sort(key=rst.index)
+        return rst1
 
     def getLogLevel(self):
         return self.config.get( "log", "level" )

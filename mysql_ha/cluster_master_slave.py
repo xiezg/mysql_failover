@@ -28,6 +28,13 @@ class MySQLMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
             slave.gtid_clean()
             master.switch_to_master()
             slave.switch_to_slave( master )
+            #for i in range( 10 ):
+            while True:
+                if len( slave.query_my_master_uuid() ) > 0:
+                    break;
+                time.sleep(1)
+            else:
+                raise Exception( "slave can't find master uuid" )
 
         self.__work_t1 = None
 
@@ -48,18 +55,21 @@ class MySQLMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
     ##检测当前master是否有效
     ##当master失效而且slave有效时，进行主从切换
     @staticmethod
-    def run(self):
+    def failover(self):
         conn_info = self.master.query_connect_info() 
         self.__call_back( ( conn_info[0], conn_info[3] ) )
 
         while not self.__work_t1_stop:
             time.sleep( 3 )
             try:
-                #判断主是否有效
-                for i in range( 0,3,1):
-                    if self.master.is_connected():
+                #判断master是否有效
+                for i in range(3):
+                    # 1、判断网络是否正常 2、判断MySQL进程是否活动
+                    if self.master.is_connected(timeout=5):
                         logger.debug( "master running" )
                         break 
+                    #判断MySQL所在的机器网络是否正常
+                    #判断k8s下，MySQL对应的POD是否正在调度
                     logger.error( "try reconnect master" )
                 else:
                     if self.__auto_failover:
@@ -86,6 +96,7 @@ class MySQLMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
                 logger.debug( "检测到过程中连接断开" )
                 continue
 
+    #启动一主一从高可用拓扑监控
     def start( self, auto_failover,  call_back):
         if not self.__work_t1 is None:
             raise Exception( "has running" )
@@ -93,7 +104,7 @@ class MySQLMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
         self.__auto_failover = auto_failover
         self.__work_t1_stop = False
         self.__call_back = call_back
-        self.__work_t1 = threading.Thread( target=self.run, args=(self,) ) 
+        self.__work_t1 = threading.Thread( target=self.failover, args=(self,) ) 
         self.__work_t1.start()
 
     def stop(self):

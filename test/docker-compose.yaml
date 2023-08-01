@@ -9,7 +9,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: "000000"
     #network_mode: "host"
-    command: --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    #command: --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    command: --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog
     ports:
       - target: 3306
         published: 13306
@@ -20,7 +21,8 @@ services:
     volumes:
       - "${BASE_PATH}/dir2:/var/lib/mysql"
     container_name: mysql-node2
-    command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    #command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog --slave-parallel-workers=4 --slave-parallel-type=DATABASE
+    command: --server-id=2 --gtid-mode=ON --enforce-gtid-consistency=on --master-info-repository=TABLE --relay-log-info-repository=TABLE --log-slave-updates --log-bin=binlog --relay-log=relaylog
     environment:
       MYSQL_ROOT_PASSWORD: "000000"
     networks:

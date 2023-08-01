@@ -37,9 +37,9 @@ class MySQLDb:
 
     def __init__(self, dsn ):
         self.dsn = dsn
-
         try:
             self.mydb = mysql.connector.connect( ** parse_dsn( dsn ), init_command="set @@sql_log_bin=off" )
+            self.mydb.autocommit = True
         except mysql.connector.errors.InterfaceError as e:
             if e.errno == 2003 or e.errno == -2:
                 logger.error( "connect mysql [{}] fails.".format(dsn) )
@@ -48,7 +48,7 @@ class MySQLDb:
 
     def __str__(self):
         role = "unknow"
-        if self.is_connected():
+        if self.is_connected(3):
             if self.is_master():
                 role="master"
             elif self.is_slave():
@@ -57,7 +57,7 @@ class MySQLDb:
         return "dns[{}] role[{}]".format( self.dsn, role )
 
     def exec_query(self, operation, multi=False):
-        if not self.is_connected():
+        if not self.is_connected(3):
             raise MySQLConnShutdown 
 
         try:
@@ -92,9 +92,9 @@ class MySQLDb:
             if mycursor:
                 mycursor.close()
 
-    def is_connected(self):
+    def is_connected(self, timeout=12):
         try:
-            self.mydb.ping(reconnect=True, attempts=5, delay=2)
+            self.mydb.ping(reconnect=True, attempts=timeout, delay=1)
         except Exception as e:
             logger.error( str(e) )
             return False  # This method does not raise
@@ -124,7 +124,8 @@ class MySQLDb:
     def query_my_master_uuid(self):
         ##select * from performance_schema.replication_connection_configuration
         #在启动主从后，假如主从同步发生错误，则该表中Uuid字段为空.
-        rst = self.exec_query( "select Uuid from mysql.slave_master_info;")
+        self.exec_query( "select * from mysql.slave_master_info")
+        rst = self.exec_query( "select Uuid from mysql.slave_master_info where Uuid <> '';")
         list=[]
         for item in rst:
             list.append( item[0] if isinstance( item[0], str) else item[0].decode("utf-8") )
@@ -205,6 +206,7 @@ class MySQLDb:
         self.exec_query( "change master to master_host='%s',master_user='%s', master_password='%s', master_port=%d, MASTER_AUTO_POSITION=1" % ( master_node.query_connect_info()  ) )
         self.exec_query( "set global super_read_only=on;" )
         self.exec_query( "start slave;" )
+        #self.mydb.commit()
 
     def switch_to_master(self):
         ##暂时未考虑slave延迟的问题。及sql线程仍在执行中继日志中的任务
@@ -213,6 +215,7 @@ class MySQLDb:
         self.exec_query( "reset slave all;" )
         self.exec_query( "set global super_read_only=off;" )
         self.create_repl_user()
+        #self.mydb.commit()
 
     def query_global_variables(self, name):
         return self.exec_query( "select VARIABLE_VALUE from performance_schema.global_variables where VARIABLE_NAME like '{}'".format( name) )[0][0]
