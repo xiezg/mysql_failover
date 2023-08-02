@@ -43,7 +43,7 @@ services:
     image: percona-toolkit:3.2.1-1
     container_name: toolkit 
     restart: always
-    command: /usr/local/bin/innotop -uroot -p000000 -h4724a55aaf6d -d 1 -m S
+    command: /usr/local/bin/innotop -uroot -p000000 -h"myfailover" -d 1 -m S
     environment:
       DEBUG: "TRUE"
     networks:

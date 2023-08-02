@@ -53,8 +53,8 @@ class MyCfg():
         return self.config.getint( "proxy", "listen_port" )
 
     @property
-    def failover_timeout(self):
-        return self.config.getint( "failover", "timeout" )
+    def failover_interval(self):
+        return self.config.getint( "failover", "interval" )
 
     @property
     def is_enable_failover(self):
