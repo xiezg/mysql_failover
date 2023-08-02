@@ -1,4 +1,5 @@
-from python:3.8.16-alpine3.17
+#from python:3.8.16-alpine3.17
+from python:3.11.4-alpine3.17
 
 #RUN pip3 install mysql-connector-python
 #RUN --mount allows you to create filesystem mounts that the build can access. This can be used to:
