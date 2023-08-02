@@ -57,7 +57,7 @@ cluster = scan_cluster_topology( nodeList[0], nodeList[1], mycfg.getFixMasterNod
 if not cluster:
     exit(1)
 
-cluster.start( mycfg.isEnableFailover(), mysql_failover_callback )
+cluster.start_failover( mycfg.failover_timeout, mycfg.is_enable_failover, mysql_failover_callback )
 
 
 

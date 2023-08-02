@@ -52,14 +52,19 @@ class MyCfg():
     def getProxyListenPort(self):
         return self.config.getint( "proxy", "listen_port" )
 
+    @property
+    def failover_timeout(self):
+        return self.config.getint( "failover", "timeout" )
+
+    @property
+    def is_enable_failover(self):
+        return self.config.get( "failover", "auto_failover" ).lower() == "true"
+
     def getProxyWorkThreadNum(self):
         return self.config.getint( "proxy", "work_thread_num" )
 
     def getProxyTcpIdleTimeout(self):
         return self.config.getint( "proxy", "tcp_idle_timeout" )
-
-    def isEnableFailover(self):
-        return self.config.get( "failover", "auto_failover" ).lower() == "true"
 
     def getFixMasterNode(self):
         if self.config.has_option( "failover", "fix_master" ):
