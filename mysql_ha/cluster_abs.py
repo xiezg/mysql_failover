@@ -19,11 +19,13 @@ class MySQLDbAbstract(ABC):
 
 class MySQLHATopologyAbstract(ABC):
     @abstractmethod
-    def start( self, auto_failover, call_back ):
+    def start_failover( self, interval, auto_failover, call_back ):
+        #启动故障转移
+        #auto_failover bool: 当master不可用后，是否进行故障转移
         pass
 
     @abstractmethod
-    def stop( self ):
+    def stop_failover( self ):
         pass
 #TODO
 #slave sql/thread在执行错误时.执行的对象是什么？(1、事物：)

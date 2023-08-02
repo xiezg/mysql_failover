@@ -29,7 +29,8 @@ class MySQLGTIDInconsistencyException( mysql.connector.errors.Error):
         super().__init__( msg=errmsg )
 
 class MySQLConnShutdown( mysql.connector.errors.Error ):
-    pass
+    def __init__(self):
+        super().__init__( msg="MySQLConnShutdown")
 
 #slave角色信息丢失，不再是slave
 class MySQLSlaveRoleMissException( mysql.connector.errors.Error):

@@ -66,13 +66,13 @@ class MySQLDb:
             if multi:
                 rst=[]
                 for result in mycursor.execute(operation, multi=True):
-                    logger.debug( "SQL:[{}]".format( result.statement) )
+                    #logger.debug( "SQL:[{}]".format( result.statement) )
                     if result.with_rows:
                         rst += result.fetchall()
                 return rst
             else:
                 mycursor.execute( operation, multi=False)
-                logger.debug( "SQL:[{}]".format( mycursor.statement) )
+                #logger.debug( "SQL:[{}]".format( mycursor.statement) )
                 return mycursor.fetchall()
         except mysql.connector.errors.OperationalError as e:
             logger.error( str(e) )
@@ -92,12 +92,15 @@ class MySQLDb:
             if mycursor:
                 mycursor.close()
 
-    def is_connected(self, timeout=12):
+    def is_connected( self, timeout = 12 ):
         try:
-            self.mydb.ping(reconnect=True, attempts=timeout, delay=1)
-        except Exception as e:
-            logger.error( str(e) )
-            return False  # This method does not raise
+            self.mydb.cmd_ping()
+        except:
+            try:
+                self.mydb.reconnect( attempts=timeout, delay=1 )
+                return True
+            except:
+                return False
         return True
 
     def query_my_uuid(self):

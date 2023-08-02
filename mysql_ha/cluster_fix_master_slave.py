@@ -35,17 +35,17 @@ class MySQLFixMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
         self.master = master
         self.slave = slave
 
-    def start( self, auto_failover,  call_back):
+    def start_failover( self, interval, auto_failover,  call_back):
         if not self.__work_t1 is None:
             raise Exception( "has running" )
 
         conn_info = self.master.query_connect_info() 
         call_back( ( conn_info[0], conn_info[3] ) )
         self.__work_t1_stop = False
-        self.__work_t1 = threading.Thread( target=self.run, args=(self,) ) 
+        self.__work_t1 = threading.Thread( target=self.run, args=(self,interval) ) 
         self.__work_t1.start()
 
-    def stop(self):
+    def stop_failover(self):
         if self.__work_t1 is None:
             return
         logger.debug( "recv stop" )
@@ -55,10 +55,9 @@ class MySQLFixMasterSlaveCluster(MySQLSingleMasterSingleSlaveCluster):
 
     ##循环任务
     @staticmethod
-    def run(self):
-
+    def run(self, interval):
         while not self.__work_t1_stop:
-            time.sleep( 3 )
+            time.sleep( interval )
             try:
                 if not self.slave.is_my_master( self.master ):
                     logger.info( "old master online and switch to slave" )
